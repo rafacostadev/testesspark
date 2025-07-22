@@ -1,6 +1,8 @@
 import pandas as pd
+import logging
 from pyspark.sql import SparkSession
 from gender_guesser_br import Genero
+
 
 diretorio = "Base_de_vendas_COOKIE.xlsx"
 arquivo = pd.ExcelFile(diretorio)
@@ -9,14 +11,14 @@ sheets = arquivo.sheet_names
 spark = SparkSession.builder \
     .appName("Conectar ao MySQL") \
     .config("spark.jars", "mysql-connector-j-9.3.0.jar") \
+    .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false") \
     .getOrCreate()
 
 # 3. Configurar conexão com MySQL
 url = "jdbc:mysql://localhost:3306/testes"
-tabela = "tb_fornecedor"
+tabela = "tb_cliente"
 usuario = "root"
 senha = "123456"
-
 
 # O CÓDIGO ABAIXO TRATA TODAS AS SHEETS DA PLANILHA PARA QUE OS HEADERS FIQUEM CORRETOS E OS DADOS POSICIONADOS
 
@@ -35,16 +37,14 @@ senha = "123456"
 # def sexoPorNome(nome):
 #     return Genero(nome)()
 
-# O CÓDIGO ABAIXO CRIA UM DF COM OS DADOS DO FORNECEDOR E INSERE NO BANCO DE DADOS
-
 excelSheet = pd.read_excel(diretorio, header = None, sheet_name=sheets[4])
 for i in range(0, 4): 
     if "id" in str(excelSheet.iloc[i, 0]):
-        excelSheet = pd.read_excel(diretorio, sheet_name=sheets[3], skiprows=i)
+        excelSheet = pd.read_excel(diretorio, sheet_name=sheets[4], skiprows=i)
         df = spark.createDataFrame(excelSheet)
-        df = df.select("razao_social", "nome_fantasia", "cnpj")
-        df.show()
-        
+        df = df.select("id_cliente","nome", "cpf")
+        df.show(df.count())
+
 df.write \
     .format("jdbc") \
     .option("url", url) \
@@ -55,7 +55,9 @@ df.write \
     .mode("append") \
     .save()
         
-        
+logging.getLogger("py4j").setLevel(logging.ERROR)
+logging.getLogger("pyspark").setLevel(logging.ERROR)
+
 # O CÓDIGO ABAIXO RESOLVE O PROBLEMA DO SEXO(DA MAIORIA DOS CLIENTES) E INSERE EM UMA NOVA COLUNA
         
 # print(f"Nome da tabela: {sheets[4]} \n")
