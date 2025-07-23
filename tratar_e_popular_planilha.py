@@ -16,9 +16,9 @@ spark = SparkSession.builder \
     .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false") \
     .getOrCreate()
 
-url = "jdbc:mysql://localhost:3306/testes"
+url = "jdbc:mysql://localhost:3306/loja_cookies"
 usuario = "root"
-senha = "123456"
+senha = "root"
 
 # Funções auxiliares
 
@@ -139,7 +139,10 @@ def tratar_enderecos_fornecedores():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
-
+                
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
+    
 def tratar_ingredientes():
     # A FUNÇÃO TRATA OS INGREDIENTES E INSERE NO BANCO DE DADOS
     excelSheet = pd.read_excel(diretorio, header = None, sheet_name=sheets[2])
@@ -159,6 +162,9 @@ def tratar_ingredientes():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
+                
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
         
 def tratar_ingredientes_fornecedores():
     # A FUNÇÃO TRATA OS FORNECEDORES DE CADA INGREDIENTE E INSERE NO BANCO DE DADOS
@@ -179,6 +185,9 @@ def tratar_ingredientes_fornecedores():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
         
 def tratar_tipos_produtos():
     # A FUNÇÃO TRATA OS TIPOS DE PRODUTO INSERE NO BANCO DE DADOS
@@ -199,6 +208,9 @@ def tratar_tipos_produtos():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
 
 def tratar_produtos():
     # A FUNÇÃO TRATA OS PRODUTOS E INSERE NO BANCO DE DADOS
@@ -219,6 +231,9 @@ def tratar_produtos():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
 
 def tratar_venda():
     # A FUNÇÃO AS VENDAS E INSERE NO BANCO DE DADOS
@@ -239,6 +254,9 @@ def tratar_venda():
         .option("driver", "com.mysql.cj.jdbc.Driver") \
         .mode("append") \
         .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
 
 def tratar_feedback():
     # A FUNÇÃO TRATA OS PRODUTOS E INSERE NO BANCO DE DADOS
@@ -250,14 +268,27 @@ def tratar_feedback():
             df = df.select(col("idvenda").alias("id_venda"), "nota", "comentario")
             df.show()
             
-    df.write \
-        .format("jdbc") \
-        .option("url", url) \
-        .option("dbtable", "tb_feedback") \
-        .option("user", usuario) \
-        .option("password", senha) \
-        .option("driver", "com.mysql.cj.jdbc.Driver") \
-        .mode("append") \
-        .save()
+    # df.write \
+    #     .format("jdbc") \
+    #     .option("url", url) \
+    #     .option("dbtable", "tb_feedback") \
+    #     .option("user", usuario) \
+    #     .option("password", senha) \
+    #     .option("driver", "com.mysql.cj.jdbc.Driver") \
+    #     .mode("append") \
+    #     .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
         
-tratar_feedback()
+
+tratar_clientes()
+tratar_enderecos_clientes()
+tratar_fornecedores()
+tratar_enderecos_fornecedores()
+tratar_ingredientes()
+tratar_ingredientes_fornecedores()
+tratar_tipos_produtos()
+tratar_produtos()
+tratar_venda()
+# tratar_feedback()

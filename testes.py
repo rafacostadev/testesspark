@@ -12,4 +12,4 @@ def sexoPorNome(nome):
     except:
         return "desconhecido"
     
-print(sexoPorNome("Rafael"))
+print(sexoPorNome("Joana"))
