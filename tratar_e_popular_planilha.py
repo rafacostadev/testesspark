@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col , split, explode, trim, regexp_extract
+from pyspark.sql.functions import col , split, explode, trim, regexp_extract, dayofmonth, month, year, date_format, quarter
 from gender_guesser_br import Genero
 
 # Configurações de arquivos, de sessão do spark e de conexão com o bd
@@ -10,9 +10,16 @@ diretorio = "Base_de_vendas_COOKIE.xlsx"
 arquivo = pd.ExcelFile(diretorio)
 sheets = arquivo.sheet_names
 
+url = "jdbc:mysql://localhost:3306/loja_cookies"
+dw_url = "jdbc:mysql://localhost:3306/modelo_dimensional"
+usuario = "root"
+senha = "123456"
+jarPath = "mysql-connector-j-9.3.0.jar"
+driver = "com.mysql.cj.jdbc.Driver"
+
 spark = SparkSession.builder \
     .appName("Conectar ao MySQL") \
-    .config("spark.jars", "mysql-connector-j-9.3.0.jar") \
+    .config("spark.jars", jarPath) \
     .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false") \
     .getOrCreate()
 
@@ -21,9 +28,6 @@ options = {
     "delimiter": ","
 }
 
-url = "jdbc:mysql://localhost:3306/loja_cookies"
-usuario = "root"
-senha = "123456"
 
 # Funções auxiliares
 
@@ -307,6 +311,169 @@ def tratar_venda_produto():
     logging.getLogger("py4j").setLevel(logging.ERROR)
     logging.getLogger("pyspark").setLevel(logging.ERROR)
             
+def verificarBanco():
+    df_venda = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_venda") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_tempo = df_venda.select("data_venda").distinct() \
+        .withColumn("dia", dayofmonth("data_venda")) \
+        .withColumn("mes", month("data_venda")) \
+        .withColumn("ano", year("data_venda")) \
+        .withColumn("nome_mes", date_format("data_venda", "MMMM")) \
+        .withColumn("dia_da_semana", date_format("data_venda", "EEEE")) \
+        .withColumn("trimestre", quarter("data_venda")) \
+        .withColumnRenamed("data_venda", "data_completa")
+
+    dim_tempo.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_tempo") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_cliente = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_cliente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    df_endereco = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_endereco_cliente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_cliente = df_cliente.join(df_endereco, "id_cliente") \
+        .select(
+            "id_cliente", "nome", "cpf", "sexo", "data_nascimento",
+            "cidade", "uf"
+        ).withColumnRenamed("data_nascimento", "data_nascimento")
+
+    dim_cliente.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_cliente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_produto = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_produto") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    df_tipo = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_tipo_produto") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_produto = df_produto.join(df_tipo, "id_tipo_produto") \
+        .select(
+            "id_produto",
+            col("nome").alias("nome_produto"),
+            col("descricao").alias("descricao_tipo_produto"),
+            col("preco_unitario").alias("preco_atual")
+        )
+
+    dim_produto.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_produto") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_ingrediente = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_ingrediente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_ingrediente = df_ingrediente.select("id_ingrediente", "nome_ingrediente")
+
+    dim_ingrediente.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_ingrediente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_fornecedor = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_fornecedor") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_fornecedor = df_fornecedor.select(
+        "id_fornecedor", "razao_social", "nome_fantasia", "cnpj", "cidade", "uf"
+    )
+
+    dim_fornecedor.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_fornecedor") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_feedback = spark.read \
+        .format("jdbc") \
+        .option("url", url  ) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_feedback") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_feedback = df_feedback.select("id_feedback", "nota", "comentario")
+
+    dim_feedback.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_feedback") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
 
 # tratar_clientes()
 # tratar_enderecos_clientes()
@@ -318,5 +485,6 @@ def tratar_venda_produto():
 # tratar_produtos()
 # tratar_venda()
 # tratar_feedback()
+# tratar_venda_produto()
 
-tratar_venda_produto()
+verificarBanco()

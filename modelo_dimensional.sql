@@ -4,13 +4,13 @@ USE modelo_dimensional;
 
 CREATE TABLE dim_tempo (
     sk_tempo INT PRIMARY KEY AUTO_INCREMENT,
-    data_completa DATE NOT NULL UNIQUE,
-    dia INT NOT NULL,
-    mes INT NOT NULL,
-    ano INT NOT NULL,
-    nome_mes VARCHAR(20) NOT NULL,
-    dia_da_semana VARCHAR(20) NOT NULL,
-    trimestre INT NOT NULL
+    data_completa DATE,
+    dia INT,
+    mes INT,
+    ano INT,
+    nome_mes VARCHAR(20),
+    dia_da_semana VARCHAR(20),
+    trimestre INT
 );
 
 CREATE TABLE dim_cliente (
