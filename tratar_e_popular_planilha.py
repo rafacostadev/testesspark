@@ -474,7 +474,161 @@ def verificarBanco():
         .option("password", senha) \
         .mode("append") \
         .save()
+        
+        # Já tem os dados do modelo relacional
+    df_produto_ingrediente = spark.read \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("driver", driver) \
+        .option("dbtable", "tb_produto_ingrediente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
 
+    dim_produto = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_produto") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_ingrediente = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_ingrediente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    bridge_produto_ingrediente = df_produto_ingrediente.alias("pi") \
+        .join(dim_produto.alias("p"), col("pi.id_produto") == col("p.id_produto"), "inner") \
+        .join(dim_ingrediente.alias("i"), col("pi.id_ingrediente") == col("i.id_ingrediente"), "inner") \
+        .select(
+            col("p.sk_produto"),
+            col("i.sk_ingrediente")
+        ).distinct()
+
+    bridge_produto_ingrediente.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "bridge_produto_ingrediente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+
+    df_ingrediente_fornecedor = spark.read \
+    .format("jdbc") \
+    .option("url", url) \
+    .option("driver", driver) \
+    .option("dbtable", "tb_fornecedor_ingrediente") \
+    .option("user", usuario) \
+    .option("password", senha) \
+    .load()
+
+    dim_fornecedor = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_fornecedor") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    bridge_ingrediente_fornecedor = df_ingrediente_fornecedor.alias("ifor") \
+        .join(dim_ingrediente.alias("i"), col("ifor.id_ingrediente") == col("i.id_ingrediente"), "inner") \
+        .join(dim_fornecedor.alias("f"), col("ifor.id_fornecedor") == col("f.id_fornecedor"), "inner") \
+        .select(
+            col("i.sk_ingrediente"),
+            col("f.sk_fornecedor")
+        ).distinct()
+
+    bridge_ingrediente_fornecedor.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "bridge_ingrediente_fornecedor") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+        
+    df_venda = spark.read \
+    .format("jdbc") \
+    .option("url", url) \
+    .option("driver", driver) \
+    .option("dbtable", "tb_venda") \
+    .option("user", usuario) \
+    .option("password", senha) \
+    .load()
+
+    dim_tempo = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_tempo") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_cliente = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_cliente") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+
+    dim_feedback = spark.read \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "dim_feedback") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .load()
+    
+    df_venda_produto = spark.read \
+    .format("jdbc") \
+    .option("url", "jdbc:mysql://localhost:3306/loja_cookies") \
+    .option("driver", "com.mysql.cj.jdbc.Driver") \
+    .option("dbtable", "tb_venda_produto") \
+    .option("user", usuario) \
+    .option("password", senha) \
+    .load()
+
+    fato_vendas = df_venda.alias("v") \
+    .join(dim_tempo.alias("t"), col("v.data_venda") == col("t.data_completa"), "inner") \
+    .join(dim_cliente.alias("c"), col("v.id_cliente") == col("c.id_cliente"), "inner") \
+    .join(df_venda_produto.alias("vp"), col("v.id_venda") == col("vp.id_venda"), "inner") \
+    .join(dim_produto.alias("p"), col("vp.id_produto") == col("p.id_produto"), "inner") \
+    .join(dim_feedback.alias("f"), col("v.id_feedback") == col("f.id_feedback"), "inner") \
+    .select(
+        col("t.sk_tempo"),
+        col("c.sk_cliente"),
+        col("p.sk_produto"),
+        col("f.sk_feedback"),
+        col("v.id_venda"),
+        col("vp.quantidade_vendida"),
+        col("vp.preco_unitario_venda"),
+        (col("vp.quantidade_vendida") * col("vp.preco_unitario_venda")).alias("valor_total_item")
+    )
+
+    fato_vendas.write \
+        .format("jdbc") \
+        .option("url", dw_url) \
+        .option("driver", driver) \
+        .option("dbtable", "fato_vendas") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .mode("append") \
+        .save()
+    
 # tratar_clientes()
 # tratar_enderecos_clientes()
 # tratar_fornecedores()
