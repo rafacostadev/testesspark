@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import when, col
+from pyspark.sql.functions import col , split, explode, trim, regexp_extract
 from gender_guesser_br import Genero
 
 # Configurações de arquivos, de sessão do spark e de conexão com o bd
@@ -16,9 +16,14 @@ spark = SparkSession.builder \
     .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false") \
     .getOrCreate()
 
+options = {
+    "header": "true",
+    "delimiter": ","
+}
+
 url = "jdbc:mysql://localhost:3306/loja_cookies"
 usuario = "root"
-senha = "root"
+senha = "123456"
 
 # Funções auxiliares
 
@@ -45,7 +50,6 @@ def tratar_clientes():
                 excelSheet.loc[indice, "sexo"] = sexoPorNome(nome)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_cliente","nome", "cpf", "sexo")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -76,7 +80,6 @@ def tratar_enderecos_clientes():
                     excelSheet.loc[indice, "cep"] = "00000-000"
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_cliente","rua","numero", "complemento", "bairro", "cidade", "uf", "cep")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -99,7 +102,6 @@ def tratar_fornecedores():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[3], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_fornecedor","razao_social", "nome_fantasia", "cnpj", "cidade", "uf")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -128,7 +130,6 @@ def tratar_enderecos_fornecedores():
                     excelSheet.loc[indice, "uf"] = "PE"
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_fornecedor","cidade","uf")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -151,7 +152,6 @@ def tratar_ingredientes():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[2], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_ingrediente",col("ingrediente").alias("nome_ingrediente"))
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -174,7 +174,6 @@ def tratar_ingredientes_fornecedores():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[2], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_fornecedor", "id_ingrediente")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -197,7 +196,6 @@ def tratar_tipos_produtos():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[0], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_tipo_produto", "descricao")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -220,7 +218,6 @@ def tratar_produtos():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[1], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_produto", "id_tipo_produto", col("descricao").alias("nome"), col("preco_uniatrio").alias("preco_unitario"))
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -243,7 +240,6 @@ def tratar_venda():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[5], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select("id_venda", "id_cliente", "status", "data_venda")
-            df.show()
             
     df.write \
         .format("jdbc") \
@@ -266,29 +262,61 @@ def tratar_feedback():
             excelSheet = pd.read_excel(diretorio, sheet_name=sheets[6], skiprows=i)
             df = spark.createDataFrame(excelSheet)
             df = df.select(col("idvenda").alias("id_venda"), "nota", "comentario")
-            df.show()
             
-    # df.write \
-    #     .format("jdbc") \
-    #     .option("url", url) \
-    #     .option("dbtable", "tb_feedback") \
-    #     .option("user", usuario) \
-    #     .option("password", senha) \
-    #     .option("driver", "com.mysql.cj.jdbc.Driver") \
-    #     .mode("append") \
-    #     .save()
+    df.write \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("dbtable", "tb_feedback") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .option("driver", "com.mysql.cj.jdbc.Driver") \
+        .mode("append") \
+        .save()
     
     logging.getLogger("py4j").setLevel(logging.ERROR)
     logging.getLogger("pyspark").setLevel(logging.ERROR)
-        
 
-tratar_clientes()
-tratar_enderecos_clientes()
-tratar_fornecedores()
-tratar_enderecos_fornecedores()
-tratar_ingredientes()
-tratar_ingredientes_fornecedores()
-tratar_tipos_produtos()
-tratar_produtos()
-tratar_venda()
+def tratar_venda_produto():
+    excelSheet = pd.read_excel(diretorio, header = None, sheet_name=sheets[5])
+    tabelaProdutos = pd.read_excel(diretorio, header = None, sheet_name=sheets[1])
+    for i in range(0, 4): 
+        if "id" in str(excelSheet.iloc[i, 0]):
+            excelSheet = pd.read_excel(diretorio, sheet_name=sheets[5], skiprows=i)
+            tabelaProdutos = pd.read_excel(diretorio, sheet_name=sheets[1], skiprows=3)
+            df = spark.createDataFrame(excelSheet)
+            df_produtos = spark.createDataFrame(tabelaProdutos)
+            df = df.select("id_venda", col("itens vendidos").alias("itens_vendidos"))
+            df_tratado = df.withColumn("produtos_tratados", split("itens_vendidos", ","))
+            df_tratado = df_tratado.withColumn("produto", explode("produtos_tratados"))
+            df_tratado = df_tratado.withColumn("produto", trim("produto"))
+            df_tratado = df_tratado.withColumn("quantidade", regexp_extract("produto", r"(\d+)X", 1)) \
+            .withColumn("nome_produto", regexp_extract("produto", r"\d+X\s*(.*)", 1))
+            df_final = df_tratado.join(df_produtos, df_tratado["nome_produto"] == df_produtos["descricao"], how="left")
+            df_final = df_final.select("id_venda", "id_produto", "quantidade")
+            
+    df_final.write \
+        .format("jdbc") \
+        .option("url", url) \
+        .option("dbtable", "tb_venda_produto") \
+        .option("user", usuario) \
+        .option("password", senha) \
+        .option("driver", "com.mysql.cj.jdbc.Driver") \
+        .mode("append") \
+        .save()
+    
+    logging.getLogger("py4j").setLevel(logging.ERROR)
+    logging.getLogger("pyspark").setLevel(logging.ERROR)
+            
+
+# tratar_clientes()
+# tratar_enderecos_clientes()
+# tratar_fornecedores()
+# tratar_enderecos_fornecedores()
+# tratar_ingredientes()
+# tratar_ingredientes_fornecedores()
+# tratar_tipos_produtos()
+# tratar_produtos()
+# tratar_venda()
 # tratar_feedback()
+
+tratar_venda_produto()

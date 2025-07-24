@@ -1,5 +1,5 @@
 DROP DATABASE IF EXISTS `loja_cookies`;
-CREATE DATABASE  IF NOT EXISTS `loja_cookies`;
+CREATE DATABASE `loja_cookies`;
 USE `loja_cookies`;
 
 DROP TABLE IF EXISTS `tb_cliente`;
@@ -7,7 +7,8 @@ CREATE TABLE `tb_cliente` (
   `id_cliente` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `nome` varchar(60) NOT NULL,
   `cpf` char(11) NOT NULL,
-  `sexo` ENUM('masculino', 'feminino', 'desconhecido')
+  `sexo` ENUM('masculino', 'feminino', 'desconhecido'),
+  `sexo` DATE data_de_nascimento
 );
 
 DROP TABLE IF EXISTS `tb_endereco_cliente`;

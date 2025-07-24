@@ -1,73 +1,88 @@
-DROP DATABASE IF EXISTS `loja_cookies_dimensional`;
-CREATE DATABASE  IF NOT EXISTS `loja_cookies_dimensional`;
-USE `loja_cookies_dimensional`;
+DROP DATABASE IF EXISTS modelo_dimensional;
+CREATE DATABASE modelo_dimensional;
+USE modelo_dimensional;
 
-DROP TABLE IF EXISTS `dim_fornecedor_endereco`;
-CREATE TABLE `dim_fornecedor_endereco` (
-  `sk_id_fornecedor_endereco` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `id_fornecedor_endereco` int NOT NULL,
-  `id_fornecedor` INT NOT NULL,
-  `cep_fornecedor` char(10) DEFAULT '000000-000' NOT NULL,
-  `complemento_fornecedor` varchar(60),
-  `rua_fornecedor` varchar(60) NOT NULL,
-  `numero_fornecedor` varchar(10) NOT NULL,
-  `cidade_fornecedor` varchar(40) DEFAULT 'Recife' NOT NULL,
-  `bairro_fornecedor` varchar(60) NOT NULL,
-  `uf_fornecedor` char(2) DEFAULT 'PE' NOT NULL
+CREATE TABLE dim_tempo (
+    sk_tempo INT PRIMARY KEY AUTO_INCREMENT,
+    data_completa DATE NOT NULL UNIQUE,
+    dia INT NOT NULL,
+    mes INT NOT NULL,
+    ano INT NOT NULL,
+    nome_mes VARCHAR(20) NOT NULL,
+    dia_da_semana VARCHAR(20) NOT NULL,
+    trimestre INT NOT NULL
 );
 
-DROP TABLE IF EXISTS `dim_fornecedor`;
-CREATE TABLE `dim_fornecedor` (
-  `sk_id_fornecedor` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `id_fornecedor` int NOT NULL,
-  `id_fornecedor_endereco` INT NOT NULL,
-  `razao_social` varchar(60) NOT NULL,
-  `nome_fantasia` varchar(60) NOT NULL,
-  `cnpj_fornecedor` char(18) NOT NULL,
+CREATE TABLE dim_cliente (
+    sk_cliente INT PRIMARY KEY AUTO_INCREMENT,
+    id_cliente INT NOT NULL,
+    nome VARCHAR(255) NOT NULL,
+    cpf VARCHAR(14) NOT NULL,
+    sexo VARCHAR(20),
+    data_nascimento DATE,
+    cidade VARCHAR(100),
+    uf CHAR(2)
 );
 
--- CONTINUAR CONSTRUÇÃO DE TABELAS DE FORNECEDOR
-
-DROP TABLE IF EXISTS `dim_cliente_endereco`;
-CREATE TABLE `dim_cliente_endereco` (
-  `sk_id_cliente_endereco` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `id_cliente_endereco` INT NOT NULL,
-  `id_cliente` INT NOT NULL,
-  `bairro_cliente` varchar(60) NOT NULL,
-  `numero_cliente` varchar(10) NOT NULL,
-  `complemento_cliente` varchar(60) NOT NULL,
-  `cep_cliente` char(10) DEFAULT '000000-000' NOT NULL,
-  `uf_cliente` char(2) DEFAULT 'PE',
-  `cidade_cliente` varchar(40) DEFAULT 'Recife' NOT NULL,
-  `rua_cliente` varchar(60) NOT NULL,
+CREATE TABLE dim_produto (
+    sk_produto INT PRIMARY KEY AUTO_INCREMENT,
+    id_produto INT NOT NULL,
+    nome_produto VARCHAR(255) NOT NULL,
+    descricao_tipo_produto VARCHAR(255),
+    preco_atual DECIMAL(10, 2)
 );
 
-DROP TABLE IF EXISTS `dim_cliente`;
-CREATE TABLE `dim_cliente` (
-  `sk_id_cliente` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `id_cliente` int NOT NULL,
-  `id_cliente_endereco` INT NOT NULL,
-  `id_venda` INT NOT NULL,
-  `nome_cliente` varchar(60),
-  `cpf_cliente` varchar(11) NOT NULL,
-  `sexo_cliente` ENUM("masculino", "feminino", "desconhecido") NOT NULL,
-  `data_nascimento_cliente` DATE NOT NULL,
-  `dia_nascimento_cliente` INT NOT NULL,
-  `mes_nascimento_cliente` INT NOT NULL,
-  `ano_nascimento_cliente` INT NOT NULL,
+CREATE TABLE dim_feedback (
+    sk_feedback INT PRIMARY KEY AUTO_INCREMENT,
+    id_feedback INT NOT NULL,
+    nota INT,
+    comentario TEXT
 );
 
-DROP TABLE IF EXISTS `dim_fornecedor`;
-CREATE TABLE `dim_fornecedor` (
-  `sk_id_fornecedor` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `id_fornecedor` int NOT NULL,
-  `id_fornecedor_endereco` INT NOT NULL,
-  `razao_social` char(10) DEFAULT '000000-000'NOT NULL,
-  `nome_fantasia` varchar(60),
-  `cnpj_fornecedor` varchar(10) DEFAULT 's/n',
-  `numero_fornecedor` varchar(60) NOT NULL,
-  `cidade_fornecedor` varchar(40) DEFAULT 'Recife' NOT NULL,
-  `bairro_fornecedor` varchar(60) DEFAULT 'PE' NOT NULL,
-  `uf_fornecedor` char(2) DEFAULT '000000-000'NOT NULL,
-  FOREIGN KEY (id_cliente) REFERENCES tb_cliente(id_cliente)
+CREATE TABLE dim_ingrediente (
+    sk_ingrediente INT PRIMARY KEY AUTO_INCREMENT,
+    id_ingrediente INT NOT NULL,
+    nome_ingrediente VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE dim_fornecedor (
+    sk_fornecedor INT PRIMARY KEY AUTO_INCREMENT,
+    id_fornecedor INT NOT NULL,
+    razao_social VARCHAR(255),
+    nome_fantasia VARCHAR(255),
+    cnpj VARCHAR(18),
+    cidade VARCHAR(100),
+    uf CHAR(2)
+);
+
+CREATE TABLE bridge_produto_ingrediente (
+    sk_produto INT NOT NULL,
+    sk_ingrediente INT NOT NULL,
+    PRIMARY KEY (sk_produto, sk_ingrediente),
+    FOREIGN KEY (sk_produto) REFERENCES dim_produto(sk_produto),
+    FOREIGN KEY (sk_ingrediente) REFERENCES dim_ingrediente(sk_ingrediente)
+);
+
+CREATE TABLE bridge_ingrediente_fornecedor (
+    sk_ingrediente INT NOT NULL,
+    sk_fornecedor INT NOT NULL,
+    PRIMARY KEY (sk_ingrediente, sk_fornecedor),
+    FOREIGN KEY (sk_ingrediente) REFERENCES dim_ingrediente(sk_ingrediente),
+    FOREIGN KEY (sk_fornecedor) REFERENCES dim_fornecedor(sk_fornecedor)
+);
+
+CREATE TABLE fato_vendas (
+    sk_tempo INT NOT NULL,
+    sk_cliente INT NOT NULL,
+    sk_produto INT NOT NULL,
+    sk_feedback INT NOT NULL,
+    id_venda INT NOT NULL,
+    quantidade_vendida INT NOT NULL,
+    preco_unitario_venda DECIMAL(10, 2) NOT NULL,
+    valor_total_item DECIMAL(10, 2) NOT NULL,
+    PRIMARY KEY (sk_tempo, sk_cliente, sk_produto, sk_feedback, id_venda),
+    FOREIGN KEY (sk_tempo) REFERENCES dim_tempo(sk_tempo),
+    FOREIGN KEY (sk_cliente) REFERENCES dim_cliente(sk_cliente),
+    FOREIGN KEY (sk_produto) REFERENCES dim_produto(sk_produto),
+    FOREIGN KEY (sk_feedback) REFERENCES dim_feedback(sk_feedback)
 );
